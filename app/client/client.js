@@ -8,10 +8,29 @@ function initCaller(messageCallback, mentorCallback){
     console.log("Connected as " + uid);
     var signalingChannel = createSignalingChannel(wsUri, uid);
     var servers = { iceServers: [{urls: "stun:stun.1.google.com:19302"}]};
+    var channels = {};
+    var receiver = null;
 
     function initCommunication() {
         signalingChannel.onMentor = function(mentor){
-            mentorCallback(mentor);
+            for (var elem in mentor)
+                startCommunication(mentor[elem]);
+        };
+        signalingChannel.onClientDisconnected = function(clientid){
+            delete channels[clientid];
+            mentorCallback(channels);
+        };
+        signalingChannel.onOffer = function (offer, source) {
+            console.log('receive offer from');
+            var peerConnection = createPeerConnection(source);
+            peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            peerConnection.createAnswer(function(answer){
+                peerConnection.setLocalDescription(answer);
+                console.log('send answer');
+                signalingChannel.sendAnswer(answer, source);
+            }, function (e){
+                console.error(e);
+            });
         };
     }
 
@@ -33,25 +52,17 @@ function initCaller(messageCallback, mentorCallback){
         pc.ondatachannel = function(event) {
             var receiveChannel = event.channel;
             console.log("channel received");
-            window.channel = receiveChannel;
+
+            channels[peerId] = receiveChannel;
+            console.log("Add channels 2", channels);
+            mentorCallback(channels);
+
             receiveChannel.onmessage = function(event){
-                messageCallback(event.data);
+                onRTCMessage(event.data);
             };
         };
         return pc;
     }
-    signalingChannel.onOffer = function (offer, source) {
-        console.log('receive offer');
-        var peerConnection = createPeerConnection(source);
-        peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        peerConnection.createAnswer(function(answer){
-            peerConnection.setLocalDescription(answer);
-            console.log('send answer');
-            signalingChannel.sendAnswer(answer, source);
-        }, function (e){
-            console.error(e);
-        });
-    };
 
     function startCommunication(peerId) {
         var pc = new RTCPeerConnection(servers, {
@@ -83,7 +94,11 @@ function initCaller(messageCallback, mentorCallback){
         }, function (e){
             console.error(e);
         });
-        window.channel = _commChannel;
+
+        channels[peerId] = _commChannel;
+        console.log("Add channels 1", channels);
+        mentorCallback(channels);
+
         _commChannel.onclose = function(evt) {
             console.log("dataChannel closed");
         };
@@ -94,10 +109,25 @@ function initCaller(messageCallback, mentorCallback){
             console.log("dataChannel opened");
         };
         _commChannel.onmessage = function(message){
-            messageCallback(message.data);
+            onRTCMessage(message.data);
         };
     }
 
-    window.startCommunication = startCommunication;
+    function setReceiver(rcv){
+        receiver = rcv;
+    }
+    function sendRTCMessage(msg){
+        if (receiver != null)
+            channels[receiver].send(JSON.stringify({type:'msg', message:msg}));
+    }
+
+    function onRTCMessage(msg){
+        var messageObj = JSON.parse(msg);
+        if (messageObj.type == "msg")
+            messageCallback(messageObj.message);
+    }
+
+    window.sendRTCMessage = sendRTCMessage;
+    window.setReceiver = setReceiver;
     initCommunication();
 }

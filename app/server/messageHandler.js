@@ -33,11 +33,15 @@ function onInit(ws, id){
 
 function onOffer(offer, destination, source){
     console.log("offer from peer:", source, "to peer", destination);
-    connectedPeers[destination].send(JSON.stringify({
-        type:'offer',
-        offer:offer,
-        source:source
-    }));
+    try {
+        connectedPeers[destination].send(JSON.stringify({
+            type: 'offer',
+            offer: offer,
+            source: source
+        }));
+    }catch(e){
+        disconnect(destination);
+    }
 }
 
 function onAnswer(answer, destination, source){
@@ -51,14 +55,29 @@ function onAnswer(answer, destination, source){
 
 function onICECandidate(ICECandidate, destination, source){
     console.log("ICECandidate from peer:", source, "to peer", destination);
-    connectedPeers[destination].send(JSON.stringify({
-        type: 'ICECandidate',
-        ICECandidate: ICECandidate,
-        source: source
-    }));
+    try {
+        connectedPeers[destination].send(JSON.stringify({
+            type: 'ICECandidate',
+            ICECandidate: ICECandidate,
+            source: source
+        }));
+    } catch(e){
+        disconnect(destination);
+    }
+}
+
+function disconnect(id){
+    var i = peersId.indexOf(id);
+    if (i > -1) {
+        delete connectedPeers[id];
+        peersId.splice(i, 1);
+        console.log(id, "disconnected");
+    }
 }
 
 module.exports = onMessage;
+
+module.exports.onDisconnect = disconnect;
 
 //exporting for unit tests only
 module.exports._connectedPeers = connectedPeers;

@@ -39,6 +39,9 @@ function SignalingChannel(id){
             case "mentor":
                 self.onMentor(objMessage.mentor);
                 break;
+            case "disconnected":
+                self.onClientDisconnected(objMessage.id);
+                break;
             default:
                 throw new Error("invalid message type");
         }
@@ -87,6 +90,11 @@ function SignalingChannel(id){
     //default handler, should be overriden
     this.onMentor = function(mentor){
         console.log("OnMentor: ", mentor);
+    };
+
+    //default handler, should be overriden
+    this.onClientDisconnected = function(clientid){
+        console.log("OnClientDisconnected: ", clientid);
     };
 }
 

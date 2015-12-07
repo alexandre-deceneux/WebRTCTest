@@ -10,29 +10,32 @@
         window.addEventListener("load", function(){
             var received = document.getElementById('received');
             var peersList = document.getElementById("peersList");
+            var receiverField = document.getElementById("receiver");
             initCaller(
                 function(message){
                     var newText = document.createTextNode(message);
                     received.appendChild(newText);
                 },
-                function(mentor){
-                    for (var elem in mentor) {
+                function(list){
+                    peersList.innerHTML = "";
+                    for (var elem in list) {
                         var li = document.createElement("li");
-                        li.onclick = function(){
-                            startCommunication(mentor[elem]);
+                        li.attributes["data"] = elem;
+                        li.onclick = function(event){
+                            console.log(event);
+                            var rcv = event.srcElement.attributes["data"];
+                            receiverField.innerHTML = rcv;
+                            setReceiver(rcv);
                         };
-                        li.appendChild(document.createTextNode(mentor[elem]));
+                        li.appendChild(document.createTextNode(elem));
                         peersList.appendChild(li);
                     }
                 }
             );
             document.getElementById("send").onclick= function(){
                 var message = document.getElementById('message').value;
-                channel.send(message);
+                sendRTCMessage(message);
             };
-//            document.getElementById("start").onclick= function(){
-//                startCommunication(2);
-//            };
         }, false);
     </script>
 </head>
@@ -41,6 +44,9 @@
 <ul id="peersList">
 
 </ul>
+<p>
+Send message to : <span id="receiver"></span>
+</p>
 <textarea id="message"></textarea>
 <p id="received"></p>
 <button id="send">Send message</button>
