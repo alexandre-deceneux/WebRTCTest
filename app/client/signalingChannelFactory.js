@@ -36,6 +36,9 @@ function SignalingChannel(id){
             case "answer":
                 self.onAnswer(objMessage.answer, objMessage.source);
                 break;
+            case "mentor":
+                self.onMentor(objMessage.mentor);
+                break;
             default:
                 throw new Error("invalid message type");
         }
@@ -59,7 +62,6 @@ function SignalingChannel(id){
 
     function sendAnswer(answer, destination){
         _sendMessage("answer", answer, destination);
-        
     }
 
     this.connectToTracker = connectToTracker;
@@ -80,6 +82,11 @@ function SignalingChannel(id){
     //default handler, should be overriden 
     this.onICECandidate = function(ICECandidate, source){
         console.log("ICECandidate from peer:", source, ':', ICECandidate);
+    };
+
+    //default handler, should be overriden
+    this.onMentor = function(mentor){
+        console.log("OnMentor: ", mentor);
     };
 }
 

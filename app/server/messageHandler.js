@@ -1,4 +1,5 @@
-var  connectedPeers = {};
+var connectedPeers = {};
+var peersId = [];
 function onMessage(ws, message){
     var type = message.type;
     switch (type) {
@@ -23,6 +24,11 @@ function onInit(ws, id){
     console.log("init from peer:", id);
     ws.id = id;
     connectedPeers[id] = ws;
+    ws.send(JSON.stringify({
+        type: 'mentor',
+        mentor: peersId
+    }));
+    peersId.push(id);
 }
 
 function onOffer(offer, destination, source){
@@ -30,7 +36,7 @@ function onOffer(offer, destination, source){
     connectedPeers[destination].send(JSON.stringify({
         type:'offer',
         offer:offer,
-        source:source,
+        source:source
     }));
 }
 
@@ -39,7 +45,7 @@ function onAnswer(answer, destination, source){
     connectedPeers[destination].send(JSON.stringify({
         type: 'answer',
         answer: answer,
-        source: source,
+        source: source
     }));
 }
 
@@ -48,7 +54,7 @@ function onICECandidate(ICECandidate, destination, source){
     connectedPeers[destination].send(JSON.stringify({
         type: 'ICECandidate',
         ICECandidate: ICECandidate,
-        source: source,
+        source: source
     }));
 }
 
