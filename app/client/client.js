@@ -13,8 +13,14 @@ function initCaller(messageCallback, mentorCallback){
 
     function initCommunication() {
         signalingChannel.onMentor = function(mentor){
-            for (var elem in mentor)
-                startCommunication(mentor[elem]);
+            i = 0;
+            for (var elem in mentor) {
+                setTimeout(function(elem){
+                    console.log("Create comm with ", mentor[elem]);
+                    startCommunication(mentor[elem]);
+                }, i, elem);
+                i += 300;
+            }
         };
         signalingChannel.onClientDisconnected = function(clientid){
             delete channels[clientid];
@@ -51,12 +57,8 @@ function initCaller(messageCallback, mentorCallback){
         };
         pc.ondatachannel = function(event) {
             var receiveChannel = event.channel;
-            console.log("channel received");
-
             channels[peerId] = receiveChannel;
-            console.log("Add channels 2", channels);
             mentorCallback(channels);
-
             receiveChannel.onmessage = function(event){
                 onRTCMessage(event.data);
             };
@@ -71,7 +73,7 @@ function initCaller(messageCallback, mentorCallback){
             }]
         });
         pc.onicecandidate = function (evt) {
-            if(evt.candidate){ // empty candidate (wirth evt.candidate === null) are often generated
+            if(evt.candidate){
                 signalingChannel.sendICECandidate(evt.candidate, peerId);
             }
         };
@@ -84,19 +86,10 @@ function initCaller(messageCallback, mentorCallback){
             pc.addIceCandidate(new RTCIceCandidate(ICECandidate));
         };
         //:warning the dataChannel must be opened BEFORE creating the offer.
-        var _commChannel = pc.createDataChannel('communication', {
+        var _commChannel = pc.createDataChannel('communication' + peerId + "-" + uid, {
             reliable: false
         });
-        pc.createOffer(function(offer){
-            pc.setLocalDescription(offer);
-            console.log('send offer');
-            signalingChannel.sendOffer(offer, peerId);
-        }, function (e){
-            console.error(e);
-        });
-
         channels[peerId] = _commChannel;
-        console.log("Add channels 1", channels);
         mentorCallback(channels);
 
         _commChannel.onclose = function(evt) {
@@ -111,6 +104,13 @@ function initCaller(messageCallback, mentorCallback){
         _commChannel.onmessage = function(message){
             onRTCMessage(message.data);
         };
+        pc.createOffer(function(offer){
+            pc.setLocalDescription(offer);
+            console.log('send offer');
+            signalingChannel.sendOffer(offer, peerId);
+        }, function (e){
+            console.error(e);
+        });
     }
 
     function setReceiver(rcv){
