@@ -9,7 +9,6 @@ wss.on('connection', function connection(ws) {
         var objMessage = JSON.parse(message);
         messageHandler(ws, objMessage);
     });
-
 });
 
 console.log("started signaling server on port" + PORT_NUMBER);

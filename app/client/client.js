@@ -5,34 +5,29 @@ function initCaller(messageCallback, mentorCallback){
     var wsUri = "ws://localhost:8090/";
 
     var uid = Math.round(Math.random() * 100000000000);
-    console.log("Connected as " + uid);
     var signalingChannel = createSignalingChannel(wsUri, uid);
     var servers = { iceServers: [{urls: "stun:stun.1.google.com:19302"}]};
     var channels = {};
+    var peerIdList = [];
     var receiver = null;
 
+    /**
+     * Initiate the signaling server communication
+     */
     function initCommunication() {
         signalingChannel.onMentor = function(mentor){
-            i = 0;
-            for (var elem in mentor) {
-                setTimeout(function(elem){
-                    console.log("Create comm with ", mentor[elem]);
-                    startCommunication(mentor[elem]);
-                }, i, elem);
-                i += 300;
-            }
+            peerIdList.push(mentor);
+            startCommunication(mentor, true);
         };
         signalingChannel.onClientDisconnected = function(clientid){
             delete channels[clientid];
             mentorCallback(channels);
         };
         signalingChannel.onOffer = function (offer, source) {
-            console.log('receive offer from');
             var peerConnection = createPeerConnection(source);
             peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             peerConnection.createAnswer(function(answer){
                 peerConnection.setLocalDescription(answer);
-                console.log('send answer');
                 signalingChannel.sendAnswer(answer, source);
             }, function (e){
                 console.error(e);
@@ -40,6 +35,10 @@ function initCaller(messageCallback, mentorCallback){
         };
     }
 
+    /**
+     * Initiate the communication (receiver part)
+     * @param peerId Caller id
+     */
     function createPeerConnection(peerId){
         var pc = new RTCPeerConnection(servers, {
             optional: [{
@@ -52,21 +51,26 @@ function initCaller(messageCallback, mentorCallback){
             }
         };
         signalingChannel.onICECandidate = function (ICECandidate, source) {
-            console.log("receiving ICE candidate from ",source);
             pc.addIceCandidate(new RTCIceCandidate(ICECandidate));
         };
         pc.ondatachannel = function(event) {
             var receiveChannel = event.channel;
             channels[peerId] = receiveChannel;
+            peerIdList.push(peerId);
             mentorCallback(channels);
             receiveChannel.onmessage = function(event){
-                onRTCMessage(event.data);
+                onRTCMessage(event.data, peerId);
             };
         };
         return pc;
     }
 
-    function startCommunication(peerId) {
+    /**
+     * Start a communication with a peer
+     * @param peerId Peer ID to connect to
+     * @param isMentor True if the ID is the current mentor
+     */
+    function startCommunication(peerId, isMentor) {
         var pc = new RTCPeerConnection(servers, {
             optional: [{
                 DtlsSrtpKeyAgreement: true
@@ -78,11 +82,9 @@ function initCaller(messageCallback, mentorCallback){
             }
         };
         signalingChannel.onAnswer = function (answer, source) {
-            console.log('receive answer from ', source);
             pc.setRemoteDescription(new RTCSessionDescription(answer));
         };
         signalingChannel.onICECandidate = function (ICECandidate, source) {
-            console.log("receiving ICE candidate from ",source);
             pc.addIceCandidate(new RTCIceCandidate(ICECandidate));
         };
         //:warning the dataChannel must be opened BEFORE creating the offer.
@@ -92,39 +94,75 @@ function initCaller(messageCallback, mentorCallback){
         channels[peerId] = _commChannel;
         mentorCallback(channels);
 
-        _commChannel.onclose = function(evt) {
-            console.log("dataChannel closed");
-        };
-        _commChannel.onerror = function(evt) {
-            console.error("dataChannel error");
-        };
         _commChannel.onopen = function(){
-            console.log("dataChannel opened");
+            if (isMentor)
+                _commChannel.send(JSON.stringify({type: 'getpeerlist'}));
         };
         _commChannel.onmessage = function(message){
-            onRTCMessage(message.data);
+            onRTCMessage(message.data, peerId);
         };
         pc.createOffer(function(offer){
             pc.setLocalDescription(offer);
-            console.log('send offer');
             signalingChannel.sendOffer(offer, peerId);
         }, function (e){
             console.error(e);
         });
     }
 
+    /**
+     * Set a new id as receiver
+     * @param rcv The new receiver
+     */
     function setReceiver(rcv){
         receiver = rcv;
     }
+
+    /**
+     * Send an RTC message to a peer
+     * @param msg Message to send
+     */
     function sendRTCMessage(msg){
         if (receiver != null)
             channels[receiver].send(JSON.stringify({type:'msg', message:msg}));
     }
 
-    function onRTCMessage(msg){
+    /**
+     * Add new peers to the current list. Establish the communication
+     * @param newList
+     */
+    function addToPeerList(newList){
+        i = 0;
+        for (var elem in newList)
+            if (newList[elem] != uid && peerIdList.indexOf(newList[elem]) == -1) {
+                        setTimeout(function (elem) {
+                            startCommunication(newList[elem], false);
+                        }, i, elem);
+                        i += 300;
+            }
+        peerIdList = peerIdList.concat(newList);
+    }
+
+    /**
+     * Send the current peer list
+     * @param receiver The peer ID to send the list to
+     */
+    function sendPeerList(receiver){
+        channels[receiver].send(JSON.stringify({type:'peerlist', list:peerIdList}));
+    }
+
+    /**
+     * Analyze an RTC message
+     * @param msg Message formated
+     * @param sender The sender ID if any
+     */
+    function onRTCMessage(msg, sender){
         var messageObj = JSON.parse(msg);
         if (messageObj.type == "msg")
             messageCallback(messageObj.message);
+        else if (messageObj.type == "peerlist")
+            addToPeerList(messageObj.list);
+        else if (messageObj.type == "getpeerlist")
+            sendPeerList(sender);
     }
 
     window.sendRTCMessage = sendRTCMessage;

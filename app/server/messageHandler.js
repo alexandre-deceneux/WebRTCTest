@@ -24,10 +24,12 @@ function onInit(ws, id){
     console.log("init from peer:", id);
     ws.id = id;
     connectedPeers[id] = ws;
-    ws.send(JSON.stringify({
-        type: 'mentor',
-        mentor: peersId
-    }));
+    if (peersId.length > 0) {
+        ws.send(JSON.stringify({
+            type: 'mentor',
+            mentor:peersId[Math.round(Math.random() * (peersId.length - 1))]
+        }));
+    }
     peersId.push(id);
 }
 

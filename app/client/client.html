@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Web RTC Test</title>
+    <title>StreamRoot - Web RTC Test</title>
     <script src="signalingChannelFactory.js"></script>
     <script src="client.js"></script>
     <script language="javascript" type="text/javascript">
@@ -33,14 +33,13 @@
                 }
             );
             document.getElementById("send").onclick= function(){
-                var message = document.getElementById('message').value;
-                sendRTCMessage(message);
+                sendRTCMessage(document.getElementById('message').value);
             };
         }, false);
     </script>
 </head>
 <body>
-<h2>Web RTC Test 1</h2>
+<h2>Web RTC Test for StreamRoot</h2>
 <ul id="peersList">
 
 </ul>
